@@ -36,8 +36,8 @@ def main():
     with open(args.loogle_file, 'r') as f:
         data = [json.loads(l) for l in f]
     if args.num_test is not None:
-        
         data = data[:args.num_test]
+
     # Prepare output file
     if not args.result_file.endswith('.jsonl'):
         raise ValueError(f"Expect `result_file` to be a JSONL file, but receive \"{args.result_file}\".")
@@ -52,7 +52,8 @@ def main():
             num_resumed = 0
             for l in f:
                 num_resumed += 1
-                all_scores.extend([qa['score'] for qa in json.loads(l)['qa_pairs']])
+                qa = json.loads(l)
+                all_scores.append(qa['score'])
     else:
         num_resumed = 0
 
@@ -60,26 +61,26 @@ def main():
     all_msgs = []
     for entry in tqdm.tqdm(data[num_resumed:]):
         # Prepare messsages for batched eval
-        qa = entry
         msg = [
             {'role': 'system', 'content': SYSTEM_PROMPT},
-            {'role': "user", 'content': PROMPT_TEMPLATE.format(question=qa['Q'], reference=qa['A'], pred=qa['P'])}
+            {'role': "user", 'content': PROMPT_TEMPLATE.format(question=entry['Q'], reference=entry['A'], pred=entry['P'])}
         ]
         all_msgs.append(msg)
 
     batch_size = args.batch_size
-    for start in range(0, batch_size, len(all_msgs)):
+    for start in range(0, len(all_msgs), batch_size):
         end = min(start + batch_size, len(all_msgs))
         msgs = all_msgs[start: end]
-
+        
         # Get responses
         all_responses = llm.chat(msgs, sampling_params, use_tqdm=False)
         for qa, response in zip(data[start: end], all_responses):
             qa['score'] = 'true' in response.outputs[0].text.lower()
             all_scores.append(qa['score'])
-        # Export
-        with open(args.result_file, 'a') as f:
-            f.write(json.dumps(entry) + '\n')
+
+            with open(args.result_file, 'a') as f:
+                f.write(json.dumps(qa) + '\n')
+
     # Report
     print(f"Avg. score = {np.mean(all_scores)}.")
 
