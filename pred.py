@@ -7,7 +7,7 @@ from datasets import load_dataset
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--task', type=str, default=None, help="long context understanding tasks in LooGLE", choices=["shortdep_qa","longdep_qa","longdep_summarization","shortdep_cloze"])
+    parser.add_argument('--task', type=str, default=None, help="long context understanding tasks in LooGLE", choices=["shortdep_qa","longdep_qa","longdep_summarization","shortdep_cloze", "shortdep_qa_no_context"])
     parser.add_argument('--max_prompt_length', type=int, default=None, help="the max length of input prompt")
     parser.add_argument('--max_model_length', type=int, default=None, help="the max length of model input")
 
@@ -33,7 +33,10 @@ def prepare_prompts(data_instances, tokenizer, max_length, prompt_format):
 
         qa_list = eval(data_instance['qa_pairs'])
         for qa_idx, qa_pair in enumerate(qa_list):
-            json_obj = {'Q': qa_pair['Q'], 'input': raw_inputs}
+            if args.task == "shortdep_qa_no_context":
+                json_obj = {'Q': qa_pair['Q']}
+            else:
+                json_obj = {'Q': qa_pair['Q'], 'input': raw_inputs}
             prompt = prompt_format.format(**json_obj)
             
             # Handle long prompts
@@ -91,7 +94,9 @@ def aggregate_results(data_instances, outputs, metadata):
 
 def loads(path, task):
     data = []
-    with open(path+task+".jsonl", "r") as f:
+    if task == "shortdep_qa_no_context":
+        task = "shortdep_qa"
+    with open(path + task + ".jsonl", "r") as f:
         lines = f.readlines()
         for line in lines:
             data.append(json.loads(line))
