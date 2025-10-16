@@ -23,7 +23,6 @@ def main():
     parser.add_argument('--loogle_file', required=True, help="The path of the LooGLE output file. It should be a JSONL file.")
     parser.add_argument('--result_file', required=True, help="The path of the evaluation result file. It should be a JSONL file.")
     parser.add_argument('--num_test', type=int, default=None, help="The number of entries to evaluate. If it is provided, the first `num_test` entries are evaluated; otherwise, all the entries are evaluated. (An entry refers to all the test QAs of an article, i.e., one line in the LooGLE output file.)")
-    parser.add_argument('--batch_size', type=int, default=16)
     args = parser.parse_args()
 
     # Load the model
@@ -67,19 +66,14 @@ def main():
         ]
         all_msgs.append(msg)
 
-    batch_size = args.batch_size
-    for start in range(0, len(all_msgs), batch_size):
-        end = min(start + batch_size, len(all_msgs))
-        msgs = all_msgs[start: end]
-        
-        # Get responses
-        all_responses = llm.chat(msgs, sampling_params, use_tqdm=False)
-        for qa, response in zip(data[start: end], all_responses):
-            qa['score'] = 'true' in response.outputs[0].text.lower()
-            all_scores.append(qa['score'])
+    # Get responses
+    all_responses = llm.chat(all_msgs, sampling_params, use_tqdm=False)
+    for qa, response in zip(data, all_responses):
+        qa['score'] = 'true' in response.outputs[0].text.lower()
+        all_scores.append(qa['score'])
 
-            with open(args.result_file, 'a') as f:
-                f.write(json.dumps(qa) + '\n')
+        with open(args.result_file, 'a') as f:
+            f.write(json.dumps(qa) + '\n')
 
     # Report
     print(f"Avg. score = {np.mean(all_scores)}.")

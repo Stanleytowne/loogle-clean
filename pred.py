@@ -17,18 +17,15 @@ def parse_args(args=None):
     # vLLM related parameters
     parser.add_argument('--tensor_parallel_size', type=int, default=1, help="number of GPUs to use for tensor parallelism")
     parser.add_argument('--gpu_memory_utilization', type=float, default=0.9, help="GPU memory utilization for vLLM (0.0-1.0)")
-    parser.add_argument('--batch_size', type=int, default=8, help="batch size for inference")
 
     return parser.parse_args(args)
-
-
 
 def prepare_prompts(data_instances, tokenizer, max_length, prompt_format):
     """Prepare all prompts and return metadata"""
     all_prompts = []
     metadata = []  # Store metadata for each prompt
     
-    for data_idx, data_instance in enumerate(data_instances):
+    for data_instance in data_instances:
         raw_inputs = data_instance['input']
 
         qa_list = eval(data_instance['qa_pairs'])
@@ -61,25 +58,18 @@ def prepare_prompts(data_instances, tokenizer, max_length, prompt_format):
     
     return all_prompts, metadata
 
-
-def batch_generate(llm, prompts, max_gen, batch_size=8):
-    """Batch generation with support for splitting large batches"""
+def batch_generate(llm, prompts, max_gen):
+    """Generate outputs for all prompts"""
     sampling_params = SamplingParams(
         temperature=0.1,
         max_tokens=max_gen,
     )
     
-    all_outputs = []
-    # Process in batches to avoid memory overflow
-    for i in range(0, len(prompts), batch_size):
-        batch_prompts = prompts[i:i+batch_size]
-        outputs = llm.generate(batch_prompts, sampling_params)
-        all_outputs.extend(outputs)
+    outputs = llm.generate(prompts, sampling_params)
     
-    return all_outputs
+    return outputs
 
-
-def aggregate_results(data_instances, outputs, metadata):
+def aggregate_results(outputs, metadata):
     """Aggregate generated results back to original data structure"""
     results = []
     
@@ -132,31 +122,22 @@ if __name__ == '__main__':
     prompt_format = task2prompt[args.task]
     max_gen = task2maxlen[args.task]
 
-    print(f"Total {len(data)} data instances, using batch size: {args.batch_size}")
+    print(f"Total {len(data)} data instances")
     
-    # Process all data in batches
-    for batch_start in range(0, len(data), args.batch_size):
-        batch_end = min(batch_start + args.batch_size, len(data))
-        batch_data = data[batch_start:batch_end]
-        
-        print(f"Processing batch {batch_start//args.batch_size + 1}/{(len(data)-1)//args.batch_size + 1} (data {batch_start+1}-{batch_end}/{len(data)})")
-        
-        # Prepare prompts
-        prompts, metadata = prepare_prompts(batch_data, tokenizer, args.max_prompt_length, prompt_format)
-        print(f"  Generated {len(prompts)} prompts")
-        
-        # Batch inference
-        outputs = batch_generate(llm, prompts, max_gen, batch_size=args.batch_size)
-        
-        # Aggregate results
-        results = aggregate_results(batch_data, outputs, metadata)
-        
-        # Write results
-        with open(args.output_path, "a+") as g:
-            for preds in results:
-                g.write(json.dumps(preds)+'\n')
-        
-        print(f"  Completed batch {batch_start//args.batch_size + 1}")
+    # Prepare prompts
+    prompts, metadata = prepare_prompts(data, tokenizer, args.max_prompt_length, prompt_format)
+    print(f"  Generated {len(prompts)} prompts")
+    
+    # Batch inference
+    outputs = batch_generate(llm, prompts, max_gen)
+    
+    # Aggregate results
+    results = aggregate_results(outputs, metadata)
+    
+    # Write results
+    with open(args.output_path, "a+") as g:
+        for preds in results:
+            g.write(json.dumps(preds)+'\n')
     
     print("All data processing completed!")
 

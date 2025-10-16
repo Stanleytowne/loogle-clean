@@ -9,7 +9,6 @@ RESULT_PATH=output/sft_result.jsonl
 
 TENSOR_PARALLEL_SIZE=1
 GPU_MEMORY_UTILIZATION=0.95
-BATCH_SIZE=64
 device=1
 
 # Run inference
@@ -21,8 +20,7 @@ python pred.py \
     --model_path ${MODEL_PATH} \
     --output_path ${OUTPUT_PATH} \
     --tensor_parallel_size ${TENSOR_PARALLEL_SIZE} \
-    --gpu_memory_utilization ${GPU_MEMORY_UTILIZATION} \
-    --batch_size ${BATCH_SIZE}
+    --gpu_memory_utilization ${GPU_MEMORY_UTILIZATION}
 
 CUDA_VISIBLE_DEVICES=$device \
 python eval_qwen.py --loogle_file $OUTPUT_PATH --result_file $RESULT_PATH
