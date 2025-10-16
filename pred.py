@@ -5,9 +5,6 @@ import argparse
 from vllm import LLM, SamplingParams
 from datasets import load_dataset
 
-stopped_num = 10000000    
-delay = 10
-
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--task', type=str, default=None, help="long context understanding tasks in LooGLE", choices=["shortdep_qa","longdep_qa","longdep_summarization","shortdep_cloze"])
@@ -33,9 +30,10 @@ def prepare_prompts(data_instances, tokenizer, max_length, prompt_format):
     
     for data_idx, data_instance in enumerate(data_instances):
         raw_inputs = data_instance['input']
-        
-        if data_instance['qa_pairs'] == 'none':
-            json_obj = {'input': raw_inputs}
+
+        qa_list = eval(data_instance['qa_pairs'])
+        for qa_idx, qa_pair in enumerate(qa_list):
+            json_obj = {'Q': qa_pair['Q'], 'input': raw_inputs}
             prompt = prompt_format.format(**json_obj)
             
             # Handle long prompts
@@ -43,32 +41,20 @@ def prepare_prompts(data_instances, tokenizer, max_length, prompt_format):
             if len(tokenized_prompt) > max_length:
                 half = int(max_length/2)
                 prompt = tokenizer.decode(tokenized_prompt[:half], skip_special_tokens=True)+tokenizer.decode(tokenized_prompt[-half:], skip_special_tokens=True)
+
+            messages = [{"role": "user", "content": prompt}]
+            formatted_prompt = tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+            )
             
-            all_prompts.append(prompt)
+            all_prompts.append(formatted_prompt)
             metadata.append({
-                'data_idx': data_idx,
-                'qa_pairs': 'none',
-                'qa_idx': None,
-                'groundtruth': data_instance["output"]
+                'qa_idx': qa_idx,
+                'Q': qa_pair['Q'],
+                'A': qa_pair['A']
             })
-        else:
-            qa_list = eval(data_instance['qa_pairs'])
-            for qa_idx, qa_pair in enumerate(qa_list):
-                json_obj = {'Q': qa_pair['Q'], 'input': raw_inputs}
-                prompt = prompt_format.format(**json_obj)
-                
-                # Handle long prompts
-                tokenized_prompt = tokenizer(prompt, truncation=False, return_tensors="pt").input_ids[0]
-                if len(tokenized_prompt) > max_length:
-                    half = int(max_length/2)
-                    prompt = tokenizer.decode(tokenized_prompt[:half], skip_special_tokens=True)+tokenizer.decode(tokenized_prompt[-half:], skip_special_tokens=True)
-                
-                all_prompts.append(prompt)
-                metadata.append({
-                    'qa_idx': qa_idx,
-                    'Q': qa_pair['Q'],
-                    'A': qa_pair['A']
-                })
     
     return all_prompts, metadata
 
@@ -93,25 +79,6 @@ def batch_generate(llm, prompts, max_gen, batch_size=8):
 def aggregate_results(data_instances, outputs, metadata):
     """Aggregate generated results back to original data structure"""
     results = []
-    
-    # for data_idx, data_instance in enumerate(data_instances):
-    #     preds = {}
-    #     ans, groundtruth = [], []
-    #     
-    #     # Collect all outputs for this data instance
-    #     for out_idx, meta in enumerate(metadata):
-    #         if meta['data_idx'] == data_idx:
-    #             pred = outputs[out_idx].outputs[0].text
-    #             ans.append(pred)
-    #             groundtruth.append(meta['groundtruth'])
-    #     
-    #     # Set qa_pairs
-    #     if data_instance['qa_pairs'] == 'none':
-    #         preds['qa_pairs'] = 'none'
-    #     else:
-    #         preds['qa_pairs'] = eval(data_instance['qa_pairs'])
-
-    #     results.append(preds)
     
     for output, meta in zip(outputs, metadata):
         results.append({
@@ -187,4 +154,5 @@ if __name__ == '__main__':
         print(f"  Completed batch {batch_start//args.batch_size + 1}")
     
     print("All data processing completed!")
+
 
