@@ -21,7 +21,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name_or_path', default='/ceph/home/muhan01/huggingfacemodels/Qwen2.5-32B-Instruct', help="The local path of Qwen2.5-32B-Instruct.")
     parser.add_argument('--loogle_file', required=True, help="The path of the LooGLE output file. It should be a JSONL file.")
-    parser.add_argument('--result_file', required=True, help="The path of the evaluation result file. It should be a JSONL file.")
     parser.add_argument('--num_test', type=int, default=None, help="The number of entries to evaluate. If it is provided, the first `num_test` entries are evaluated; otherwise, all the entries are evaluated. (An entry refers to all the test QAs of an article, i.e., one line in the LooGLE output file.)")
     args = parser.parse_args()
 
@@ -68,15 +67,17 @@ def main():
 
     # Get responses
     all_responses = llm.chat(all_msgs, sampling_params, use_tqdm=False)
+    all_results = []
     for qa, response in zip(data, all_responses):
         qa['score'] = 'true' in response.outputs[0].text.lower()
+        all_results.append(qa)
         all_scores.append(qa['score'])
-
-        with open(args.result_file, 'a') as f:
-            f.write(json.dumps(qa) + '\n')
 
     # Report
     print(f"Avg. score = {np.mean(all_scores)}.")
+    with open(args.loogle_file, 'w') as f:
+        for result in all_results:
+            f.write(json.dumps(result) + '\n')
 
 
 if __name__ == '__main__':

@@ -5,8 +5,7 @@ MAX_MODEL_LENGTH=32768
 MAX_PROMPT_LENGTH=20000
 MODEL_PATH=/data/models/Qwen2.5-3B-Instruct
 EVAL_MODEL_PATH=/data/models/Qwen2.5-7B-Instruct
-OUTPUT_PATH=output/base_loogle.jsonl
-RESULT_PATH=output/base_result.jsonl
+OUTPUT_PATH=output/base.jsonl
 
 TENSOR_PARALLEL_SIZE=1
 GPU_MEMORY_UTILIZATION=0.95
@@ -24,5 +23,5 @@ python pred.py \
     --gpu_memory_utilization ${GPU_MEMORY_UTILIZATION}
 
 CUDA_VISIBLE_DEVICES=$device \
-python eval_qwen.py --loogle_file $OUTPUT_PATH --result_file $RESULT_PATH
+python eval_qwen.py --loogle_file $OUTPUT_PATH
 
