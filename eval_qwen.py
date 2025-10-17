@@ -36,28 +36,12 @@ def main():
     if args.num_test is not None:
         data = data[:args.num_test]
 
-    # Prepare output file
-    if not args.result_file.endswith('.jsonl'):
-        raise ValueError(f"Expect `result_file` to be a JSONL file, but receive \"{args.result_file}\".")
-    output_dir = os.path.split(args.result_file)[0]
-    if len(output_dir) > 0:
-        os.makedirs(output_dir, exist_ok=True)
-
     # Handle resuming
     all_scores = []  # For computing the average score
-    if os.path.exists(args.result_file):
-        with open(args.result_file, 'r') as f:
-            num_resumed = 0
-            for l in f:
-                num_resumed += 1
-                qa = json.loads(l)
-                all_scores.append(qa['score'])
-    else:
-        num_resumed = 0
 
     # Eval
     all_msgs = []
-    for entry in tqdm.tqdm(data[num_resumed:]):
+    for entry in tqdm.tqdm(data):
         # Prepare messsages for batched eval
         msg = [
             {'role': 'system', 'content': SYSTEM_PROMPT},
