@@ -4,6 +4,20 @@ import json
 import argparse
 from vllm import LLM, SamplingParams
 from datasets import load_dataset
+from typing import Dict
+
+def extract_answer(text: str) -> str:
+    import re
+    # Try to match <answer>...</answer>
+    match = re.search(r'<answer>(.*?)</answer>', text, re.DOTALL | re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    # If there's only <answer>, return everything after it
+    match = re.search(r'<answer>(.*)', text, re.DOTALL | re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    # Otherwise return the whole text
+    return text
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
@@ -74,10 +88,13 @@ def aggregate_results(outputs, metadata):
     results = []
     
     for output, meta in zip(outputs, metadata):
+        response = output.outputs[0].text
+        answer = extract_answer(response)
         results.append({
             'Q': meta['Q'],
             'A': meta['A'],
-            'P': output.outputs[0].text
+            'P': answer, 
+            'response': response,
         })
 
     return results
