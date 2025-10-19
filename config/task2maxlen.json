@@ -3,5 +3,5 @@
     "longdep_qa": 500,
     "longdep_summarization":500, 
     "shortdep_cloze": 50,
-    "shortdep_qa_no_context": 300
+    "shortdep_qa_no_context": 2048
 }
